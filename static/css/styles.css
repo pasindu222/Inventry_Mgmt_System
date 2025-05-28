@@ -76,3 +76,19 @@ body {
     0% { transform: rotate(0deg); }
     100% { transform: rotate(359deg); }
 }
+
+/* Product Selection Modal */
+#productSelectionModal .list-group-item {
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+#productSelectionModal .list-group-item:hover {
+    background-color: #f8f9fa;
+    transform: translateX(5px);
+}
+
+#productSelectionModal .modal-body {
+    max-height: 70vh;
+    overflow-y: auto;
+}

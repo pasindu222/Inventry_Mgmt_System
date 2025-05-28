@@ -115,20 +115,37 @@ def delete_product(product_id):
     finally:
         conn.close()
 
-@app.route('/api/products/search', methods=['GET'])
+@app.route('/api/products/search')
 def search_products():
-    search_term = request.args.get('search', '').strip()
+    query = request.args.get('q', '').strip().lower()
     conn = get_db()
     try:
-        if search_term:
-            products = conn.execute(
-                'SELECT * FROM products WHERE name LIKE ? OR barcode LIKE ?',
-                (f'%{search_term}%', f'%{search_term}%')
-            ).fetchall()
+        if query:
+            # Search by name starting with, barcode, or ID
+            products = conn.execute('''
+                SELECT * FROM products 
+                WHERE LOWER(name) LIKE ? 
+                   OR barcode LIKE ? 
+                   OR id = ?
+                ORDER BY 
+                    CASE 
+                        WHEN LOWER(name) LIKE ? THEN 1 
+                        WHEN barcode LIKE ? THEN 2 
+                        ELSE 3 
+                    END
+            ''', (
+                f'{query}%',
+                f'{query}%',
+                query if query.isdigit() else -1,
+                f'{query}%',
+                f'{query}%'
+            )).fetchall()
         else:
             products = conn.execute('SELECT * FROM products').fetchall()
             
         return jsonify([dict(product) for product in products])
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
     finally:
         conn.close()
 

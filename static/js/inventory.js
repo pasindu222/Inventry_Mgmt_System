@@ -3,12 +3,52 @@ $(document).ready(function() {
     loadProducts();
     
     // Search functionality
-    $('#searchBtn').click(searchProducts);
-    $('#searchInput').on('keyup', function(e) {
-        if (e.key === 'Enter') {
-            searchProducts();
+    let searchTimeout;
+        
+        // Search functionality - updated version
+        $('#searchInput').on('input', function() {
+            clearTimeout(searchTimeout);
+            const query = $(this).val().trim();
+            
+            searchTimeout = setTimeout(() => {
+                if (query.length >= 1) { // Search even with 1 character
+                    performSearch(query);
+                } else {
+                    loadProducts(); // Show all when empty
+                }
+            }, 300); // 300ms debounce
+        });
+        
+        // Perform the search
+        function performSearch(query) {
+            showLoading(true);
+            
+            $.ajax({
+                url: '/api/products/search',
+                method: 'GET',
+                data: { q: query },
+                success: function(products) {
+                    renderProducts(products);
+                },
+                error: function() {
+                    showAlert('Failed to load search results', 'danger');
+                },
+                complete: function() {
+                    showLoading(false);
+                }
+            });
         }
-    });
+        
+        // Show loading state
+        function showLoading(loading) {
+            const searchBtn = $('#searchBtn');
+            if (loading) {
+                searchBtn.html('<i class="fas fa-spinner fa-spin"></i>');
+                $('#inventoryTable tbody').html('<tr><td colspan="6" class="text-center">Searching...</td></tr>');
+            } else {
+                searchBtn.html('<i class="fas fa-search"></i>');
+            }
+        }
     
     // Add product
     $('#saveProductBtn').click(function() {

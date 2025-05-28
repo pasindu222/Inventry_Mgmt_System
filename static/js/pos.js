@@ -98,20 +98,79 @@ $(document).ready(function() {
     }
     
     // Barcode scanning
-    $('#barcodeInput').on('change', function() {
-        const barcode = $(this).val().trim();
-        if (barcode) {
-            loadProducts().then(products => {
-                const product = products.find(p => p.barcode === barcode);
-                if (product) {
-                    addToCart(product);
-                    $(this).val('').focus();
-                } else {
-                    alert('Product not found!');
-                }
+    let searchTimeout;
+
+        $('#barcodeInput').on('input', function() {
+            const query = $(this).val().trim();
+            clearTimeout(searchTimeout);
+            
+            if (query.length >= 2) { // Start searching after 2 characters
+                searchTimeout = setTimeout(() => {
+                    searchProducts(query).then(products => {
+                        if (products.length === 1) {
+                            // Auto-select if only one match
+                            addToCart(products[0]);
+                            $(this).val('').focus();
+                        } else if (products.length > 1) {
+                            showProductSelectionModal(products);
+                        }
+                    });
+                }, 300); // 300ms debounce
+            }
+        });
+
+        function searchProducts(query) {
+            return new Promise((resolve) => {
+                $.get(`/api/products/search?q=${encodeURIComponent(query)}`, function(products) {
+                    resolve(products);
+                }).fail(() => resolve([]));
             });
         }
-    });
+
+        function showProductSelectionModal(products) {
+            const modal = $(`
+                <div class="modal fade" id="productSelectionModal" tabindex="-1">
+                    <div class="modal-dialog">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title">Select Product</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                            </div>
+                            <div class="modal-body">
+                                <div class="list-group">
+                                    ${products.map(product => `
+                                        <button type="button" class="list-group-item list-group-item-action product-select" 
+                                                data-id="${product.id}">
+                                            <div class="d-flex w-100 justify-content-between">
+                                                <h6 class="mb-1">${product.name}</h6>
+                                                <small>$${product.price.toFixed(2)}</small>
+                                            </div>
+                                            <small class="text-muted">Stock: ${product.stock} | Barcode: ${product.barcode || 'N/A'}</small>
+                                        </button>
+                                    `).join('')}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `);
+            
+            modal.appendTo('body').modal('show');
+            
+            modal.on('click', '.product-select', function() {
+                const productId = $(this).data('id');
+                const product = products.find(p => p.id === productId);
+                addToCart(product);
+                modal.modal('hide').remove();
+                $('#barcodeInput').val('').focus();
+            });
+            
+            modal.on('hidden.bs.modal', function() {
+                modal.remove();
+                $('#barcodeInput').focus();
+            });
+        }
+
     
     // Manual entry
     $('#manualAddBtn').click(function() {
