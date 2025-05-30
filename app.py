@@ -1,19 +1,80 @@
 from flask import Flask, render_template, request, jsonify
 import sqlite3
 from flask import abort
+from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
+from flask import redirect, url_for  # Add these to your existing Flask imports
 
 app = Flask(__name__)
+
+app.secret_key = 'P1r2i1m2e@' 
+
+# Flask-Login setup
+login_manager = LoginManager()
+login_manager.init_app(app)
+login_manager.login_view = 'login'
+
+
+# User model
+class User(UserMixin):
+    def __init__(self, id, username, role):
+        self.id = id
+        self.username = username
+        self.role = role
+
+# Mock database (replace with real DB later)
+users = {
+    '1': User('1', 'admin', 'admin'),
+    '2': User('2', 'cashier', 'cashier')
+}
+
+@login_manager.user_loader
+def load_user(user_id):
+    return users.get(user_id)
+
+@app.route('/')
+def home():
+    # Redirect to login page if not authenticated
+    if not current_user.is_authenticated:
+        return redirect(url_for('login'))
+    # Or redirect to dashboard if logged in
+    return redirect(url_for('dashboard'))
+
+
+# Login route
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        username = request.form['username']
+        password = request.form['password']  # In real app, hash and verify
+        user = next((u for u in users.values() if u.username == username), None)
+        if user and password == 'password':  # Replace with real auth
+            login_user(user)
+            return redirect(url_for('dashboard'))
+        return 'Invalid credentials'
+    return render_template('login.html')
+
+# Logout route
+@app.route('/logout')
+@login_required
+def logout():
+    logout_user()
+    return redirect(url_for('login'))
 
 def get_db():
     conn = sqlite3.connect('stationery.db')
     conn.row_factory = sqlite3.Row
     return conn
 
-@app.route('/')
+@app.route('/pos')
+@login_required
 def pos():
     return render_template('pos.html')
+#@app.route('/')
+#def pos():
+#    return render_template('pos.html')
 
 @app.route('/inventory')
+@login_required
 def inventory():
     return render_template('inventory.html')
 
@@ -151,8 +212,9 @@ def search_products():
 
 # Add to your existing app.py
 @app.route('/dashboard')
+@login_required
 def dashboard():
-    return render_template('dashboard.html')
+        return render_template('dashboard.html')
 
 @app.route('/api/sales/analytics')
 def sales_analytics():
@@ -211,4 +273,4 @@ def recent_sales():
         conn.close()
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(debug=True) 
